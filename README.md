@@ -2,7 +2,7 @@
 
 ## 概述
 
-`crawler.sh` 是一个用于在 Ubuntu 系统上一键启动 MediaCrawlerPro 全部服务的自动化脚本，支持自动管理 3 个项目的启动、停止、日志输出。
+`crawler.sh` 是一个用于在 Ubuntu 系统上一键启动 MediaCrawlerPro 全部服务的自动化脚本，支持自动管理 2 个项目的启动、停止、日志输出。
 
 ---
 
@@ -10,7 +10,7 @@
 
 | 功能 | 说明 |
 |-----|------|
-| 一键启动 | 自动启动 SignSrv、CookieBridge、爬虫循环 |
+| 一键启动 | 自动启动 SignSrv、爬虫循环 |
 | 一键停止 | 自动停止所有相关进程 |
 | 状态查看 | 查看各服务运行状态 |
 | 日志查看 | 查看实时日志 |
@@ -27,7 +27,6 @@
 ├── pid.txt                     # 进程ID文件（合并为1个）
 ├── logs/                        # 日志目录（自动创建）
 │   ├── signsrv.log             # 签名服务日志
-│   ├── cookiebridge.log         # Cookie服务日志
 │   ├── crawler循环.log         # 主循环日志
 │   ├── xhs_YYYYMMDD.log      # 小红书爬取日志
 │   ├── dy_YYYYMMDD.log       # 抖音爬取日志
@@ -47,12 +46,11 @@
 启动流程：
 ```
 1. 检查 uv 是否已安装（如未安装，自动安装）
-2. 检查 3 个项目目录是否存在
+2. 检查 2 个项目目录是否存在
 3. 停止已有进程（防止重复启动）
 4. 清空各平台日志文件
 5. 启动 SignSrv（签名服务）
-6. 启动 CookieBridge（Cookie同步服务）
-7. 启动爬虫循环（xhs → dy → bili → 等待 → 循环）
+6. 启动爬虫循环（xhs → dy → bili → 等待 → 循环）
 ```
 
 ### 2. 停止所有服务
@@ -77,8 +75,7 @@
   MediaCrawlerPro 服务状态
 ==========================================
 ● SignSrv (PID: 12345)
-● CookieBridge (PID: 12346)
-● Crawler循环 (PID: 12347)
+● Crawler循环 (PID: 12346)
 ==========================================
 状态: 全部运行中
 ==========================================
@@ -210,8 +207,7 @@ KEYWORDS="AI,科技,热点"
 | 服务 | 端口 | 用途 |
 |-----|------|------|
 | SignSrv | 8090 | 请求签名验证 |
-| CookieBridge | 8274 | Cookie 自动同步 |
-| Crawler | - | 无端口，通过上述服务获取 Cookie |
+| Crawler | - | 无端口，通过 SignSrv 获取签名 |
 
 ---
 
@@ -227,7 +223,7 @@ KEYWORDS="AI,科技,热点"
 
 脚本会自动检测：
 1. uv 是否已安装
-2. 3 个项目目录是否存在
+2. 2 个项目目录是否存在
 3. PID 文件对应的进程是否存活
 
 ### 换电脑部署
@@ -251,19 +247,18 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 MediaCrawlerPro/
 ├── MediaCrawlerPro-SignSrv/
-├── MediaCrawlerPro-CookieBridge/
 ├── MediaCrawlerPro-Python/
 └── crawler.sh
 ```
 
-### 3. 爬取失败：无账号
+### 3. 爬取失败：无数据
 
-**原因**：CookieBridge 中没有登录的账号
+**原因**：平台可能调整了反爬策略或签名服务异常
 
 **解决**：
-1. 在浏览器安装 CookieBridge Extension
-2. 登录对应平台账号
-3. 重启爬虫：`./crawler.sh restart`
+1. 检查 SignSrv 是否正常运行：`./crawler.sh status`
+2. 查看日志排查具体错误：`./crawler.sh logs`
+3. 重启服务：`./crawler.sh restart`
 
 ### 4. 查看具体错误
 
@@ -307,13 +302,6 @@ cd MediaCrawlerPro-SignSrv
 uv run app.py
 ```
 
-### 只启动 CookieBridge
-
-```bash
-cd MediaCrawlerPro-CookieBridge/server
-uv run app.py
-```
-
 ### 只启动爬虫循环
 
 ```bash
@@ -332,10 +320,9 @@ uv run main.py --platform xhs --type search
 
 ## 注意事项
 
-1. **首次运行前配置账号** - 确保 CookieBridge 有对应平台的登录账号
-2. **合理设置间隔** - 避免被平台封 IP
-3. **定期检查日志** - 查看是否有错误
-4. **磁盘空间** - 日志会不断累积，建议定期清理
+1. **合理设置间隔** - 避免被平台封 IP
+2. **定期检查日志** - 查看是否有错误
+3. **磁盘空间** - 日志会不断累积，建议定期清理
 
 ---
 
@@ -343,4 +330,3 @@ uv run main.py --platform xhs --type search
 
 - [MediaCrawlerPro 主项目](https://github.com/MediaCrawlerPro/MediaCrawlerPro-Python)
 - [SignSrv 签名服务](https://github.com/MediaCrawlerPro/MediaCrawlerPro-SignSrv)
-- [CookieBridge](https://github.com/MediaCrawlerPro/MediaCrawlerPro-CookieBridge)
