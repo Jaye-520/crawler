@@ -25,7 +25,6 @@ LOG_DIR="$ROOT_DIR/logs"
 
 # 项目目录
 SIGNSRV_DIR="$ROOT_DIR/MediaCrawlerPro-SignSrv"
-COOKIEBRIDGE_DIR="$ROOT_DIR/MediaCrawlerPro-CookieBridge"
 CRAWLER_DIR="$ROOT_DIR/MediaCrawlerPro-Python"
 
 # PID 文件（合并为一个文件）
@@ -73,21 +72,16 @@ check_dirs() {
     
     if [ ! -d "$SIGNSRV_DIR" ]; then
         log_error "缺少目录: MediaCrawlerPro-SignSrv"
-        missing=1
-    fi
-    
-    if [ ! -d "$COOKIEBRIDGE_DIR" ]; then
-        log_error "缺少目录: MediaCrawlerPro-CookieBridge"
-        missing=1
+        ((missing++))
     fi
     
     if [ ! -d "$CRAWLER_DIR" ]; then
         log_error "缺少目录: MediaCrawlerPro-Python"
-        missing=1
+        ((missing++))
     fi
     
-    if [ $missing -eq 1 ]; then
-        log_error "项目目录检查失败，请确保3个项目都在 $ROOT_DIR 目录下"
+    if [ $missing -gt 0 ]; then
+        log_error "项目目录检查失败，请确保2个项目都在 $ROOT_DIR 目录下"
         exit 1
     fi
     
@@ -145,42 +139,24 @@ start() {
     > "$PID_FILE"
     
     # 1. 启动 SignSrv
-    log_info "[1/3] 启动 SignSrv..."
+    log_info "[1/2] 启动 SignSrv..."
     cd "$SIGNSRV_DIR"
     nohup uv run app.py >> "$LOG_DIR/signsrv.log" 2>&1 &
     local signsrv_pid=$!
     echo "SignSrv:$signsrv_pid" >> "$PID_FILE"
     sleep 2
     
-    # 检查是否启动成功
     if kill -0 "$signsrv_pid" 2>/dev/null; then
-        log_info "[1/3] SignSrv 已启动 (PID: $signsrv_pid)"
+        log_info "[1/2] SignSrv 已启动 (PID: $signsrv_pid)"
     else
-        log_error "[1/3] SignSrv 启动失败，请检查日志: $LOG_DIR/signsrv.log"
+        log_error "[1/2] SignSrv 启动失败，请检查日志: $LOG_DIR/signsrv.log"
         exit 1
     fi
     
     sleep 3
     
-    # 2. 启动 CookieBridge
-    log_info "[2/3] 启动 CookieBridge..."
-    cd "$COOKIEBRIDGE_DIR/server"
-    nohup uv run app.py >> "$LOG_DIR/cookiebridge.log" 2>&1 &
-    local cookiebridge_pid=$!
-    echo "CookieBridge:$cookiebridge_pid" >> "$PID_FILE"
-    sleep 2
-    
-    if kill -0 "$cookiebridge_pid" 2>/dev/null; then
-        log_info "[2/3] CookieBridge 已启动 (PID: $cookiebridge_pid)"
-    else
-        log_error "[2/3] CookieBridge 启动失败，请检查日志: $LOG_DIR/cookiebridge.log"
-        exit 1
-    fi
-    
-    sleep 3
-    
-    # 3. 启动爬虫循环
-    log_info "[3/3] 启动爬虫循环..."
+    # 2. 启动爬虫循环
+    log_info "[2/2] 启动爬虫循环..."
     cd "$ROOT_DIR"
     nohup bash "$ROOT_DIR/crawler_loop.sh" >> "$LOG_DIR/crawler循环.log" 2>&1 &
     local crawler_pid=$!
@@ -188,9 +164,9 @@ start() {
     sleep 2
     
     if kill -0 "$crawler_pid" 2>/dev/null; then
-        log_info "[3/3] 爬虫循环已启动 (PID: $crawler_pid)"
+        log_info "[2/2] 爬虫循环已启动 (PID: $crawler_pid)"
     else
-        log_error "[3/3] 爬虫循环启动失败，请检查日志: $LOG_DIR/crawler循环.log"
+        log_error "[2/2] 爬虫循环启动失败，请检查日志: $LOG_DIR/crawler循环.log"
         exit 1
     fi
     
@@ -239,12 +215,11 @@ status() {
         done < "$PID_FILE"
     else
         echo -e "${RED}●${NC} SignSrv (未启动)"
-        echo -e "${RED}●${NC} CookieBridge (未启动)"
         echo -e "${RED}●${NC} CrawlerLoop (未启动)"
     fi
     
     echo "=========================================="
-    if [ $running -eq 3 ]; then
+    if [ $running -eq 2 ]; then
         echo -e "${GREEN}状态: 全部运行中${NC}"
     else
         echo -e "${YELLOW}状态: 部分运行中${NC}"
@@ -321,17 +296,14 @@ run_platform() {
         comment_flag="--no-enable_comments"
     fi
     
-    uv run main.py --platform "$platform" --type "$CRAWLER_TYPE" --keywords "$KEYWORDS" $comment_flag >> "$log_file" 2>&1
-    
-    local exit_code=$?
-    
-    if [ $exit_code -eq 0 ]; then
+    if uv run main.py --platform "$platform" --type "$CRAWLER_TYPE" --keywords "$KEYWORDS" $comment_flag >> "$log_file" 2>&1; then
         echo "$(date '+%Y-%m-%d %H:%M:%S') - $platform 爬取完成" | tee -a "$log_file"
+        return 0
     else
+        local exit_code=$?
         echo "$(date '+%Y-%m-%d %H:%M:%S') - $platform 爬取失败，exit code: $exit_code" | tee -a "$log_file"
+        return $exit_code
     fi
-    
-    return $exit_code
 }
 
 # 主循环
